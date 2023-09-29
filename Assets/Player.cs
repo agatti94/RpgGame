@@ -12,11 +12,25 @@ public class Player : MonoBehaviour
 {
     private Rigidbody2D rb;
     public Animator anim;
+
     [SerializeField] private float moveSpeed;
     [SerializeField] public float jumpForce;
+
+    [Header("Dash info")]
+    [SerializeField] private float dashSpeed;
+    [SerializeField] private float dashDuration;
+    private float dashTime;
+    [SerializeField] private float dashCooldown;
+    private float dashCooldownTimer; 
+
     private float xInput;
     private int facingDirection = 1;
     private bool facingRight = true;
+
+    [Header("Collision info")]
+    [SerializeField] private float groundCheckDistance;
+    [SerializeField] private LayerMask whatIsGround;
+    private bool isGrounded;
 
 
     void Start()
@@ -29,11 +43,28 @@ public class Player : MonoBehaviour
     {
         Movement();
         CheckInput();
+
+        CollisionChecks();
+
+        dashTime -= Time.deltaTime;
+        dashCooldownTimer -= Time.deltaTime;
+
         FlipController();
         AnimatorControllers();
+    }
 
-        Debug.Log("o valor xInput: " + xInput);
-        Debug.Log("o valor rb,velocity: " + rb.velocity);
+    private void DashAbility()
+    {
+        if (dashCooldownTimer < 0)
+        {
+            dashCooldownTimer = dashCooldown;
+            dashTime = dashDuration;
+        }
+    }
+
+    private void CollisionChecks()
+    {
+        isGrounded = Physics2D.Raycast(transform.position, Vector2.down, groundCheckDistance, whatIsGround);
     }
 
     private void CheckInput()
@@ -44,22 +75,41 @@ public class Player : MonoBehaviour
         {
             Jump();
         }
+
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            DashAbility();
+        }
     }
 
     private void Movement()
     {
-        rb.velocity = new Vector2(xInput * moveSpeed, rb.velocity.y);
+        if (dashTime > 0)
+        {
+            rb.velocity = new Vector2(xInput * dashSpeed, rb.velocity.y);
+        }
+        else
+        {
+            rb.velocity = new Vector2(xInput * moveSpeed, rb.velocity.y);
+        }
     }
 
     private void Jump()
     {
-        rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+        if (isGrounded)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+        }
     }
 
     private void AnimatorControllers()
     {
+
         bool isMoving = rb.velocity.x != 0;
+        anim.SetFloat("yVelocity", rb.velocity.y);
         anim.SetBool("isMoving", isMoving);
+        anim.SetBool("isGrounded", isGrounded);
+        anim.SetBool("isDashing", dashTime > 0);
     }
 
     private void Flip()
@@ -80,5 +130,10 @@ public class Player : MonoBehaviour
         {
             Flip();
         }
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawLine(transform.position, new Vector3(transform.position.x, transform.position.y - groundCheckDistance));
     }
 }
